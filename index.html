@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CBM Record - SKU Database</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>📦</text></svg>">
     <style>
         * {
             margin: 0;
@@ -302,8 +303,8 @@
         <header>
             <h1>CBM Record</h1>
             <p class="subtitle">Manage SKU carton measurements</p>
-            <div class="status disconnected" id="connectionStatus">
-                <span class="spinner"></span> Connecting to database...
+            <div class="status connected" id="connectionStatus">
+                ✓ Connected to database
             </div>
         </header>
 
@@ -314,7 +315,7 @@
             <div class="control-group">
                 <h2>Upload File</h2>
                 <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
-                    Excel (.xlsx) or CSV files with SKU, Description, and CBM columns
+                    Excel (.xlsx) or CSV files with Passtime Code, Description, and CBM columns
                 </p>
                 <div class="file-input-wrapper">
                     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
@@ -368,54 +369,44 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <script>
-        const FIREBASE_CONFIG = {
-            databaseURL: "https://cbm-record-97b04-default-rtdb.asia-southeast1.firebasedatabase.app"
-        };
-
-        firebase.initializeApp(FIREBASE_CONFIG);
-        const db = firebase.database();
+        const FIREBASE_DB_URL = "https://cbm-record-97b04-default-rtdb.asia-southeast1.firebasedatabase.app";
         let allRecords = [];
         let filteredRecords = [];
-
-        // Connection status
-        const connectedRef = db.ref('.info/connected');
-        connectedRef.on('value', (snap) => {
-            const statusEl = document.getElementById('connectionStatus');
-            if (snap.val() === true) {
-                statusEl.className = 'status connected';
-                statusEl.textContent = '✓ Connected to database';
-            } else {
-                statusEl.className = 'status disconnected';
-                statusEl.textContent = '✗ Offline mode';
-            }
-        });
+        let lastSync = 0;
 
         // Load data on page load
         function loadData() {
-            db.ref('skus').on('value', (snapshot) => {
-                allRecords = [];
-                const data = snapshot.val() || {};
+            fetchRecords();
+            // Poll for updates every 3 seconds
+            setInterval(fetchRecords, 3000);
+        }
 
-                for (const id in data) {
-                    allRecords.push({
-                        id,
-                        ...data[id],
-                        dateAdded: data[id].dateAdded || new Date().toISOString()
-                    });
-                }
+        function fetchRecords() {
+            fetch(FIREBASE_DB_URL + "/skus.json")
+                .then(response => response.json())
+                .then(data => {
+                    allRecords = [];
+                    if (data && typeof data === 'object') {
+                        for (const id in data) {
+                            allRecords.push({
+                                id,
+                                ...data[id],
+                                dateAdded: data[id].dateAdded || new Date().toISOString()
+                            });
+                        }
+                    }
 
-                // Sort by date descending
-                allRecords.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
-
-                filteredRecords = [...allRecords];
-                updateTable();
-                updateStats();
-            });
+                    allRecords.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+                    filteredRecords = [...allRecords];
+                    updateTable();
+                    updateStats();
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                });
         }
 
         // File upload handling
@@ -444,15 +435,32 @@
                     return;
                 }
 
-                // Upload to Firebase
+                // Upload to Firebase - replace existing SKUs
                 let uploadedCount = 0;
+
+                // Fetch existing records
+                const existingRes = await fetch(FIREBASE_DB_URL + "/skus.json");
+                const existing = await existingRes.json() || {};
+
+                // Create a map of SKU to ID for quick lookup
+                const skuMap = {};
+                for (const id in existing) {
+                    skuMap[existing[id].sku.toLowerCase()] = id;
+                }
+
                 for (const record of records) {
-                    const id = db.ref('skus').push().key;
-                    await db.ref(`skus/${id}`).set({
-                        sku: record.sku.toString().trim(),
-                        description: record.description.toString().trim(),
-                        cbm: parseFloat(record.cbm) || 0,
-                        dateAdded: new Date().toISOString()
+                    const skuKey = record.sku.toString().trim().toLowerCase();
+                    const id = skuMap[skuKey] || Math.random().toString(36).substring(2, 15);
+
+                    await fetch(FIREBASE_DB_URL + `/skus/${id}.json`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sku: record.sku.toString().trim(),
+                            description: record.description.toString().trim(),
+                            cbm: parseFloat(record.cbm) || 0,
+                            dateAdded: existing[id]?.dateAdded || new Date().toISOString()
+                        })
                     });
                     uploadedCount++;
                 }
@@ -460,6 +468,7 @@
                 showMessage(`✓ Successfully uploaded ${uploadedCount} records`, 'success');
                 document.getElementById('fileInput').value = '';
                 document.getElementById('fileName').textContent = '';
+                loadData(); // Refresh immediately
 
             } catch (error) {
                 console.error('Upload error:', error);
@@ -469,24 +478,42 @@
 
         function parseCSV(text) {
             const lines = text.trim().split('\n');
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
 
-            const skuIdx = headers.findIndex(h => h.includes('sku'));
-            const descIdx = headers.findIndex(h => h.includes('description') || h.includes('desc'));
-            const cbmIdx = headers.findIndex(h => h.includes('cbm'));
+            // Find header row by looking for the row with our column names
+            let headerRowIdx = -1;
+            let headers = [];
+            let skuIdx = -1, descIdx = -1, cbmIdx = -1;
 
-            if (skuIdx === -1 || descIdx === -1 || cbmIdx === -1) {
-                throw new Error('CSV must have SKU, Description, and CBM columns');
+            for (let i = 0; i < lines.length; i++) {
+                const row = lines[i].split(',').map(h => h.trim().toLowerCase());
+                const hasSku = row.findIndex(h => h && (h.includes('passtime code') || h.includes('item code'))) !== -1;
+                const hasDesc = row.findIndex(h => h && h.includes('description')) !== -1;
+                const hasCbm = row.findIndex(h => h && h.includes('cbm')) !== -1;
+
+                if (hasSku && hasDesc && hasCbm) {
+                    headerRowIdx = i;
+                    headers = lines[i].split(',').map(h => h.trim().toLowerCase());
+                    skuIdx = headers.findIndex(h => h && (h.includes('passtime code') || h.includes('item code')));
+                    descIdx = headers.findIndex(h => h && h.includes('description'));
+                    cbmIdx = headers.findIndex(h => h && h.includes('cbm'));
+                    break;
+                }
+            }
+
+            if (headerRowIdx === -1 || skuIdx === -1 || descIdx === -1 || cbmIdx === -1) {
+                throw new Error('Could not find Passtime Code, Description, and CBM columns');
             }
 
             const records = [];
-            for (let i = 1; i < lines.length; i++) {
+            for (let i = headerRowIdx + 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
                 const cells = lines[i].split(',');
+                if (!cells[skuIdx] || !cells[descIdx] || !cells[cbmIdx]) continue;
+
                 records.push({
-                    sku: cells[skuIdx],
-                    description: cells[descIdx],
-                    cbm: cells[cbmIdx]
+                    sku: cells[skuIdx].trim(),
+                    description: cells[descIdx].trim(),
+                    cbm: cells[cbmIdx].trim()
                 });
             }
 
@@ -496,29 +523,54 @@
         function parseExcel(arrayBuffer) {
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(sheet);
 
-            if (rows.length === 0) {
+            // Read all rows as arrays to find header row
+            const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            if (allRows.length === 0) {
                 throw new Error('Excel file is empty');
             }
 
-            // Find columns (case-insensitive)
-            const firstRow = rows[0];
-            const headers = Object.keys(firstRow).map(h => h.toLowerCase());
+            // Find header row
+            let headerRowIdx = -1;
+            let skuIdx = -1, descIdx = -1, cbmIdx = -1;
 
-            const skuKey = Object.keys(firstRow).find(k => k.toLowerCase().includes('sku'));
-            const descKey = Object.keys(firstRow).find(k => k.toLowerCase().includes('description') || k.toLowerCase().includes('desc'));
-            const cbmKey = Object.keys(firstRow).find(k => k.toLowerCase().includes('cbm'));
+            for (let i = 0; i < allRows.length; i++) {
+                const row = allRows[i];
+                if (!row || row.length === 0) continue;
 
-            if (!skuKey || !descKey || !cbmKey) {
-                throw new Error('Excel must have SKU, Description, and CBM columns');
+                const lowerRow = row.map(cell => (cell ? cell.toString().toLowerCase() : ''));
+                const hasSku = lowerRow.findIndex(h => h && (h.includes('passtime code') || h.includes('item code'))) !== -1;
+                const hasDesc = lowerRow.findIndex(h => h && h.includes('description')) !== -1;
+                const hasCbm = lowerRow.findIndex(h => h && h.includes('cbm')) !== -1;
+
+                if (hasSku && hasDesc && hasCbm) {
+                    headerRowIdx = i;
+                    skuIdx = lowerRow.findIndex(h => h && (h.includes('passtime code') || h.includes('item code')));
+                    descIdx = lowerRow.findIndex(h => h && h.includes('description'));
+                    cbmIdx = lowerRow.findIndex(h => h && h.includes('cbm'));
+                    break;
+                }
             }
 
-            return rows.map(row => ({
-                sku: row[skuKey],
-                description: row[descKey],
-                cbm: row[cbmKey]
-            }));
+            if (headerRowIdx === -1 || skuIdx === -1 || descIdx === -1 || cbmIdx === -1) {
+                throw new Error('Could not find Passtime Code, Description, and CBM columns');
+            }
+
+            const records = [];
+            for (let i = headerRowIdx + 1; i < allRows.length; i++) {
+                const row = allRows[i];
+                if (!row || row.length === 0) continue;
+                if (!row[skuIdx] || !row[descIdx] || !row[cbmIdx]) continue;
+
+                records.push({
+                    sku: row[skuIdx],
+                    description: row[descIdx],
+                    cbm: row[cbmIdx]
+                });
+            }
+
+            return records;
         }
 
         // Search functionality
@@ -552,7 +604,7 @@
                     r.sku,
                     r.description,
                     r.cbm,
-                    new Date(r.dateAdded).toLocaleString()
+                    new Date(r.dateAdded).toLocaleString('en-AU')
                 ])
             ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
 

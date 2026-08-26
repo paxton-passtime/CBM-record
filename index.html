@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBM Record - SKU Database</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>📦</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666;
+            --border: #e0e0e0;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2d2d2d;
+                --text-primary: #ffffff;
+                --text-secondary: #b0b0b0;
+                --border: #404040;
+                --accent: #3b82f6;
+                --accent-hover: #2563eb;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .status {
+            margin-top: 8px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            display: inline-block;
+        }
+
+        .status.connected {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .status.disconnected {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-group {
+            background-color: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .control-group h2 {
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 12px 16px;
+            background-color: var(--accent);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .file-input-label:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .file-name {
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background-color: var(--bg-primary);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .table-wrapper {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead {
+            background-color: var(--bg-primary);
+            border-bottom: 2px solid var(--border);
+        }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody tr:hover {
+            background-color: var(--bg-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success);
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--text-secondary);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CBM Record</h1>
+            <p class="subtitle">Manage SKU carton measurements</p>
+            <div class="status connected" id="connectionStatus">
+                ✓ Connected to database
+            </div>
+        </header>
+
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        <div id="successMessage" class="success" style="display: none;"></div>
+
+        <div class="controls">
+            <div class="control-group">
+                <h2>Upload File</h2>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Excel (.xlsx) or CSV files with Passtime Code, Description, and CBM columns
+                </p>
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+                    <label for="fileInput" class="file-input-label">Choose File</label>
+                    <div class="file-name" id="fileName"></div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h2>Search & Export</h2>
+                <div class="search-box" style="margin-bottom: 12px;">
+                    <input type="text" id="searchInput" placeholder="Search by SKU or description...">
+                </div>
+                <button class="btn btn-secondary" style="width: 100%;" id="exportBtn">Export to CSV</button>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalCount">0</div>
+                <div class="stat-label">Total SKUs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="uploadCount">0</div>
+                <div class="stat-label">Today's Uploads</div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Description</th>
+                        <th>CBM (m³)</th>
+                        <th>Added</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                                <polyline points="13 2 13 9 20 9"></polyline>
+                            </svg>
+                            <p>No records yet. Upload a file to get started.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <script>
+        const FIREBASE_DB_URL = "https://cbm-record-97b04-default-rtdb.asia-southeast1.firebasedatabase.app";
+        let allRecords = [];
+        let filteredRecords = [];
+        let lastSync = 0;
+
+        // Load data on page load
+        function loadData() {
+            fetchRecords();
+            // Poll for updates every 3 seconds
+            setInterval(fetchRecords, 3000);
+        }
+
+        function fetchRecords() {
+            fetch(FIREBASE_DB_URL + "/skus.json")
+                .then(response => response.json())
+                .then(data => {
+                    allRecords = [];
+                    if (data && typeof data === 'object') {
+                        for (const id in data) {
+                            allRecords.push({
+                                id,
+                                ...data[id],
+                                dateAdded: data[id].dateAdded || new Date().toISOString()
+                            });
+                        }
+                    }
+
+                    allRecords.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+                    filteredRecords = [...allRecords];
+                    updateTable();
+                    updateStats();
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                });
+        }
+
+        // File upload handling
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileName').textContent = `Selected: ${file.name}`;
+
+            try {
+                showMessage('Processing file...', 'success');
+
+                const arrayBuffer = await file.arrayBuffer();
+                let records = [];
+
+                if (file.name.endsWith('.csv')) {
+                    records = parseCSV(new TextDecoder().decode(arrayBuffer));
+                } else {
+                    records = parseExcel(arrayBuffer);
+                }
+
+                if (records.length === 0) {
+                    showMessage('No valid records found. Check column names: SKU, Description, CBM', 'error');
+                    return;
+                }
+
+                // Upload to Firebase - replace existing SKUs
+                let uploadedCount = 0;
+
+                // Fetch existing records
+                const existingRes = await fetch(FIREBASE_DB_URL + "/skus.json");
+                const existing = await existingRes.json() || {};
+
+                // Create a map of SKU to ID for quick lookup
+                const skuMap = {};
+                for (const id in existing) {
+                    skuMap[existing[id].sku.toLowerCase()] = id;
+                }
+
+                for (const record of records) {
+                    const skuKey = record.sku.toString().trim().toLowerCase();
+                    const id = skuMap[skuKey] || Math.random().toString(36).substring(2, 15);
+
+                    await fetch(FIREBASE_DB_URL + `/skus/${id}.json`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sku: record.sku.toString().trim(),
+                            description: record.description.toString().trim(),
+                            cbm: parseFloat(record.cbm) || 0,
+                            dateAdded: existing[id]?.dateAdded || new Date().toISOString()
+                        })
+                    });
+                    uploadedCount++;
+                }
+
+                showMessage(`✓ Successfully uploaded ${uploadedCount} records`, 'success');
+                document.getElementById('fileInput').value = '';
+                document.getElementById('fileName').textContent = '';
+                loadData(); // Refresh immediately
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+
+            // Find header row by looking for the row with our column names
+            let headerRowIdx = -1;
+            let headers = [];
+            let skuIdx = -1, descIdx = -1, cbmIdx = -1;
+
+            for (let i = 0; i < lines.length; i++) {
+                const row = lines[i].split(',').map(h => h.trim().toLowerCase());
+                const hasSku = row.findIndex(h => h && (h.includes('passtime code') || h.includes('item code'))) !== -1;
+                const hasDesc = row.findIndex(h => h && h.includes('description')) !== -1;
+                const hasCbm = row.findIndex(h => h && h.includes('cbm')) !== -1;
+
+                if (hasSku && hasDesc && hasCbm) {
+                    headerRowIdx = i;
+                    headers = lines[i].split(',').map(h => h.trim().toLowerCase());
+                    skuIdx = headers.findIndex(h => h && (h.includes('passtime code') || h.includes('item code')));
+                    descIdx = headers.findIndex(h => h && h.includes('description'));
+                    cbmIdx = headers.findIndex(h => h && h.includes('cbm'));
+                    break;
+                }
+            }
+
+            if (headerRowIdx === -1 || skuIdx === -1 || descIdx === -1 || cbmIdx === -1) {
+                throw new Error('Could not find Passtime Code, Description, and CBM columns');
+            }
+
+            const records = [];
+            for (let i = headerRowIdx + 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const cells = lines[i].split(',');
+                if (!cells[skuIdx] || !cells[descIdx] || !cells[cbmIdx]) continue;
+
+                records.push({
+                    sku: cells[skuIdx].trim(),
+                    description: cells[descIdx].trim(),
+                    cbm: cells[cbmIdx].trim()
+                });
+            }
+
+            return records;
+        }
+
+        function parseExcel(arrayBuffer) {
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+            // Read all rows as arrays to find header row
+            const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            if (allRows.length === 0) {
+                throw new Error('Excel file is empty');
+            }
+
+            // Find header row
+            let headerRowIdx = -1;
+            let skuIdx = -1, descIdx = -1, cbmIdx = -1;
+
+            for (let i = 0; i < allRows.length; i++) {
+                const row = allRows[i];
+                if (!row || row.length === 0) continue;
+
+                const lowerRow = row.map(cell => (cell ? cell.toString().toLowerCase() : ''));
+                const hasSku = lowerRow.findIndex(h => h && (h.includes('passtime code') || h.includes('item code'))) !== -1;
+                const hasDesc = lowerRow.findIndex(h => h && h.includes('description')) !== -1;
+                const hasCbm = lowerRow.findIndex(h => h && h.includes('cbm')) !== -1;
+
+                if (hasSku && hasDesc && hasCbm) {
+                    headerRowIdx = i;
+                    skuIdx = lowerRow.findIndex(h => h && (h.includes('passtime code') || h.includes('item code')));
+                    descIdx = lowerRow.findIndex(h => h && h.includes('description'));
+                    cbmIdx = lowerRow.findIndex(h => h && h.includes('cbm'));
+                    break;
+                }
+            }
+
+            if (headerRowIdx === -1 || skuIdx === -1 || descIdx === -1 || cbmIdx === -1) {
+                throw new Error('Could not find Passtime Code, Description, and CBM columns');
+            }
+
+            const records = [];
+            for (let i = headerRowIdx + 1; i < allRows.length; i++) {
+                const row = allRows[i];
+                if (!row || row.length === 0) continue;
+                if (!row[skuIdx] || !row[descIdx] || !row[cbmIdx]) continue;
+
+                records.push({
+                    sku: row[skuIdx],
+                    description: row[descIdx],
+                    cbm: row[cbmIdx]
+                });
+            }
+
+            return records;
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            filteredRecords = allRecords.filter(record =>
+                record.sku.toLowerCase().includes(query) ||
+                record.description.toLowerCase().includes(query)
+            );
+            updateTable();
+        });
+
+        // Export functionality
+        document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+
+        async function exportToCSV() {
+            if (allRecords.length === 0) {
+                showMessage('No records to export', 'error');
+                return;
+            }
+
+            const downloads = await claude?.use?.('downloads');
+            if (!downloads) {
+                showMessage('Export not available in this view', 'error');
+                return;
+            }
+
+            const csv = [
+                ['SKU', 'Description', 'CBM', 'Date Added'],
+                ...allRecords.map(r => [
+                    r.sku,
+                    r.description,
+                    r.cbm,
+                    new Date(r.dateAdded).toLocaleString('en-AU')
+                ])
+            ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+            try {
+                await downloads.save({
+                    filename: `cbm-record-${new Date().toISOString().split('T')[0]}.csv`,
+                    data: new Blob([csv], { type: 'text/csv' })
+                });
+                showMessage('✓ Exported successfully', 'success');
+            } catch (error) {
+                showMessage('Could not download file', 'error');
+            }
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+
+            if (filteredRecords.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                            <p>No records found</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filteredRecords.map(record => `
+                <tr>
+                    <td><strong>${escapeHtml(record.sku)}</strong></td>
+                    <td>${escapeHtml(record.description)}</td>
+                    <td>${parseFloat(record.cbm).toFixed(3)}</td>
+                    <td style="font-size: 12px; color: var(--text-secondary);">
+                        ${new Date(record.dateAdded).toLocaleDateString('en-AU')}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStats() {
+            const today = new Date().toDateString();
+            const todayCount = allRecords.filter(r =>
+                new Date(r.dateAdded).toDateString() === today
+            ).length;
+
+            document.getElementById('totalCount').textContent = allRecords.length;
+            document.getElementById('uploadCount').textContent = todayCount;
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById(type === 'error' ? 'errorMessage' : 'successMessage');
+            el.textContent = text;
+            el.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => el.style.display = 'none', 3000);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+</html>

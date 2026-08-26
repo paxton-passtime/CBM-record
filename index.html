@@ -515,13 +515,27 @@
 
             for (let i = 0; i < lines.length; i++) {
                 const row = lines[i].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
-                console.log(`Checking line ${i}:`, row);
 
-                const skuMatch = row.findIndex(h => h && (h.includes('passtime') || h.includes('sku') || h.includes('code')));
-                const descMatch = row.findIndex(h => h && (h.includes('description') || h.includes('item name') || h.includes('name')));
-                const cbmMatch = row.findIndex(h => h && h.includes('cbm'));
+                // Look for specific column patterns
+                let skuMatch = -1;
+                let descMatch = -1;
+                let cbmMatch = -1;
 
-                console.log(`  SKU match: ${skuMatch}, DESC match: ${descMatch}, CBM match: ${cbmMatch}`);
+                for (let j = 0; j < row.length; j++) {
+                    const cell = row[j];
+                    // Match SKU/Passtime Code
+                    if (cell.includes('passtime code') || cell === 'passtime code' || cell === 'sku' || (cell.includes('passtime') && cell.includes('code'))) {
+                        skuMatch = j;
+                    }
+                    // Match Description
+                    if (cell === 'item description' || cell.includes('item description') || cell === 'description') {
+                        descMatch = j;
+                    }
+                    // Match CBM
+                    if (cell === 'cbm' || cell === 'cbm (m³)') {
+                        cbmMatch = j;
+                    }
+                }
 
                 if (skuMatch !== -1 && descMatch !== -1 && cbmMatch !== -1) {
                     headerRowIdx = i;
@@ -582,13 +596,27 @@
                 if (!row || row.length === 0) continue;
 
                 const lowerRow = row.map(cell => (cell ? cell.toString().toLowerCase().trim() : ''));
-                console.log(`Checking row ${i}:`, lowerRow);
 
-                const skuMatch = lowerRow.findIndex(h => h && (h.includes('passtime') || h.includes('sku') || h.includes('code')));
-                const descMatch = lowerRow.findIndex(h => h && (h.includes('description') || h.includes('item name') || h.includes('name')));
-                const cbmMatch = lowerRow.findIndex(h => h && h.includes('cbm'));
+                // Look for specific column patterns
+                let skuMatch = -1;
+                let descMatch = -1;
+                let cbmMatch = -1;
 
-                console.log(`  SKU match: ${skuMatch}, DESC match: ${descMatch}, CBM match: ${cbmMatch}`);
+                for (let j = 0; j < lowerRow.length; j++) {
+                    const cell = lowerRow[j];
+                    // Match SKU/Passtime Code
+                    if (cell.includes('passtime code') || cell === 'passtime code' || cell === 'sku' || (cell.includes('passtime') && cell.includes('code'))) {
+                        skuMatch = j;
+                    }
+                    // Match Description
+                    if (cell === 'item description' || cell.includes('item description') || cell === 'description') {
+                        descMatch = j;
+                    }
+                    // Match CBM
+                    if (cell === 'cbm' || cell === 'cbm (m³)') {
+                        cbmMatch = j;
+                    }
+                }
 
                 if (skuMatch !== -1 && descMatch !== -1 && cbmMatch !== -1) {
                     headerRowIdx = i;

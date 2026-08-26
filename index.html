@@ -479,28 +479,41 @@
         function parseCSV(text) {
             const lines = text.trim().split('\n');
 
+            console.log('=== CSV FILE DEBUG ===');
+            console.log('Total lines:', lines.length);
+            for (let i = 0; i < Math.min(10, lines.length); i++) {
+                console.log(`Line ${i}:`, lines[i]);
+            }
+
             // Find header row by looking for the row with our column names
             let headerRowIdx = -1;
             let headers = [];
             let skuIdx = -1, descIdx = -1, cbmIdx = -1;
 
             for (let i = 0; i < lines.length; i++) {
-                const row = lines[i].split(',').map(h => h.trim().toLowerCase());
-                const hasSku = row.findIndex(h => h && (h.includes('passtime code') || h.includes('item code'))) !== -1;
-                const hasDesc = row.findIndex(h => h && h.includes('description')) !== -1;
-                const hasCbm = row.findIndex(h => h && h.includes('cbm')) !== -1;
+                const row = lines[i].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+                console.log(`Checking line ${i}:`, row);
 
-                if (hasSku && hasDesc && hasCbm) {
+                const skuMatch = row.findIndex(h => h && (h.includes('passtime') || h.includes('sku') || h.includes('code')));
+                const descMatch = row.findIndex(h => h && (h.includes('description') || h.includes('item name') || h.includes('name')));
+                const cbmMatch = row.findIndex(h => h && h.includes('cbm'));
+
+                console.log(`  SKU match: ${skuMatch}, DESC match: ${descMatch}, CBM match: ${cbmMatch}`);
+
+                if (skuMatch !== -1 && descMatch !== -1 && cbmMatch !== -1) {
                     headerRowIdx = i;
-                    headers = lines[i].split(',').map(h => h.trim().toLowerCase());
-                    skuIdx = headers.findIndex(h => h && (h.includes('passtime code') || h.includes('item code')));
-                    descIdx = headers.findIndex(h => h && h.includes('description'));
-                    cbmIdx = headers.findIndex(h => h && h.includes('cbm'));
+                    headers = lines[i].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+                    skuIdx = skuMatch;
+                    descIdx = descMatch;
+                    cbmIdx = cbmMatch;
+                    console.log('✓ Found header row at index', i);
+                    console.log('  SKU at', skuIdx, 'Description at', descIdx, 'CBM at', cbmIdx);
                     break;
                 }
             }
 
             if (headerRowIdx === -1 || skuIdx === -1 || descIdx === -1 || cbmIdx === -1) {
+                console.error('Header detection failed - could not find all required columns');
                 throw new Error('Could not find Passtime Code, Description, and CBM columns');
             }
 
@@ -531,6 +544,12 @@
                 throw new Error('Excel file is empty');
             }
 
+            console.log('=== EXCEL FILE DEBUG ===');
+            console.log('Total rows:', allRows.length);
+            for (let i = 0; i < Math.min(10, allRows.length); i++) {
+                console.log(`Row ${i}:`, allRows[i]);
+            }
+
             // Find header row
             let headerRowIdx = -1;
             let skuIdx = -1, descIdx = -1, cbmIdx = -1;
@@ -539,21 +558,28 @@
                 const row = allRows[i];
                 if (!row || row.length === 0) continue;
 
-                const lowerRow = row.map(cell => (cell ? cell.toString().toLowerCase() : ''));
-                const hasSku = lowerRow.findIndex(h => h && (h.includes('passtime code') || h.includes('item code'))) !== -1;
-                const hasDesc = lowerRow.findIndex(h => h && h.includes('description')) !== -1;
-                const hasCbm = lowerRow.findIndex(h => h && h.includes('cbm')) !== -1;
+                const lowerRow = row.map(cell => (cell ? cell.toString().toLowerCase().trim() : ''));
+                console.log(`Checking row ${i}:`, lowerRow);
 
-                if (hasSku && hasDesc && hasCbm) {
+                const skuMatch = lowerRow.findIndex(h => h && (h.includes('passtime') || h.includes('sku') || h.includes('code')));
+                const descMatch = lowerRow.findIndex(h => h && (h.includes('description') || h.includes('item name') || h.includes('name')));
+                const cbmMatch = lowerRow.findIndex(h => h && h.includes('cbm'));
+
+                console.log(`  SKU match: ${skuMatch}, DESC match: ${descMatch}, CBM match: ${cbmMatch}`);
+
+                if (skuMatch !== -1 && descMatch !== -1 && cbmMatch !== -1) {
                     headerRowIdx = i;
-                    skuIdx = lowerRow.findIndex(h => h && (h.includes('passtime code') || h.includes('item code')));
-                    descIdx = lowerRow.findIndex(h => h && h.includes('description'));
-                    cbmIdx = lowerRow.findIndex(h => h && h.includes('cbm'));
+                    skuIdx = skuMatch;
+                    descIdx = descMatch;
+                    cbmIdx = cbmMatch;
+                    console.log('✓ Found header row at index', i);
+                    console.log('  SKU at', skuIdx, 'Description at', descIdx, 'CBM at', cbmIdx);
                     break;
                 }
             }
 
             if (headerRowIdx === -1 || skuIdx === -1 || descIdx === -1 || cbmIdx === -1) {
+                console.error('Header detection failed - could not find all required columns');
                 throw new Error('Could not find Passtime Code, Description, and CBM columns');
             }
 

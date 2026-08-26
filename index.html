@@ -454,7 +454,7 @@
         function parseExcel(arrayBuffer) {
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const allRows = XLSX.utils.const lowerRow = row.map(cell => (cell == null ? '' : String(cell).toLowerCase()));(sheet, { header: 1 });
+            const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
             if (allRows.length === 0) throw new Error('Excel file is empty');
 

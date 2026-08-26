@@ -427,6 +427,11 @@
                 if (file.name.endsWith('.csv')) {
                     records = parseCSV(new TextDecoder().decode(arrayBuffer));
                 } else {
+                    const preview = previewExcel(arrayBuffer);
+                    if (preview.error) {
+                        showMessage(`Preview Error: ${preview.error}`, 'error');
+                        return;
+                    }
                     records = parseExcel(arrayBuffer);
                 }
 
@@ -473,6 +478,24 @@
             } catch (error) {
                 console.error('Upload error:', error);
                 showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function previewExcel(arrayBuffer) {
+            try {
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                let preview = `FILE STRUCTURE (First 5 rows):\n\n`;
+                for (let i = 0; i < Math.min(5, allRows.length); i++) {
+                    preview += `Row ${i}: ${JSON.stringify(allRows[i])}\n`;
+                }
+
+                alert(preview + `\n\nIf you see the column headers above, reply with the exact column names so I can fix the parser.`);
+                return { error: null };
+            } catch (err) {
+                return { error: err.message };
             }
         }
 
